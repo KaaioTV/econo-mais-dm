@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Painel de DMs — Instagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <div>
+        <div class="brand-name">Direct<span class="accent">Flow</span></div>
+        <div class="brand-sub">automação de DM</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item is-active" data-view="overview">
+        <span class="nav-dot"></span> Visão geral
+      </button>
+      <button class="nav-item" data-view="inbox">
+        <span class="nav-dot"></span> Conversas
+      </button>
+      <button class="nav-item" data-view="rules">
+        <span class="nav-dot"></span> Automações
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-pill" id="connStatus">
+        <span class="pulse"></span> checando conexão…
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- VISÃO GERAL -->
+    <section id="view-overview" class="view is-active">
+      <header class="view-header">
+        <h1>Visão geral</h1>
+        <p>O que está acontecendo nas suas DMs agora.</p>
+      </header>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Conversas totais</div>
+          <div class="stat-value" id="statConversations">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Mensagens trocadas</div>
+          <div class="stat-value" id="statMessages">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ativas nas últimas 24h</div>
+          <div class="stat-value" id="statActive">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Automações ligadas</div>
+          <div class="stat-value" id="statRules">—</div>
+        </div>
+      </div>
+
+      <div class="empty-hint">
+        <strong>Ainda sem dados?</strong> Configure o webhook no App da Meta apontando
+        para <code>/webhook</code> e envie uma DM de teste para o Instagram conectado —
+        a conversa aparece aqui em segundos.
+      </div>
+    </section>
+
+    <!-- CONVERSAS -->
+    <section id="view-inbox" class="view">
+      <header class="view-header">
+        <h1>Conversas</h1>
+        <p>Histórico de DMs recebidas e respostas automáticas enviadas.</p>
+      </header>
+
+      <div class="inbox" id="inboxList">
+        <div class="empty-state">Nenhuma conversa ainda.</div>
+      </div>
+    </section>
+
+    <!-- AUTOMAÇÕES -->
+    <section id="view-rules" class="view">
+      <header class="view-header">
+        <h1>Automações</h1>
+        <p>Defina o que o DirectFlow responde automaticamente.</p>
+        <button class="btn-primary" id="newRuleBtn">+ Nova regra</button>
+      </header>
+
+      <div class="rules-list" id="rulesList"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal de criação/edição de regra -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2 id="modalTitle">Nova regra</h2>
+
+    <label class="field">
+      <span>Nome da regra</span>
+      <input type="text" id="ruleName" placeholder="Ex: Perguntas sobre preço" />
+    </label>
+
+    <label class="field">
+      <span>Quando disparar</span>
+      <select id="ruleType">
+        <option value="keyword">Contém uma palavra-chave</option>
+        <option value="welcome">Primeira mensagem do contato</option>
+        <option value="fallback">Nenhuma outra regra combinou</option>
+      </select>
+    </label>
+
+    <label class="field" id="keywordsField">
+      <span>Palavras-chave (separadas por vírgula)</span>
+      <input type="text" id="ruleKeywords" placeholder="preço, valor, quanto custa" />
+    </label>
+
+    <label class="field">
+      <span>Resposta automática</span>
+      <textarea id="ruleReply" rows="4" placeholder="Digite a mensagem que será enviada..."></textarea>
+    </label>
+
+    <label class="field-inline">
+      <input type="checkbox" id="ruleEnabled" checked />
+      <span>Regra ativa</span>
+    </label>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cancelRuleBtn">Cancelar</button>
+      <button class="btn-primary" id="saveRuleBtn">Salvar regra</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
