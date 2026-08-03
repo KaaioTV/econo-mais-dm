@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
+// Garante que o db.json fique na pasta 'data' na raiz do projeto (ou ajustado ao contexto)
 const DB_PATH = path.join(__dirname, "..", "data", "db.json");
 
 const DEFAULT_DATA = {
@@ -22,6 +23,15 @@ const DEFAULT_DATA = {
       enabled: true,
       keywords: ["link"],
       reply: "Oi! Vi que você comentou no nosso post 😊 O link do Insights Packet é exclusivo: COLE-SEU-LINK-AQUI. Qualquer dúvida, é só chamar!",
+    },
+    {
+      id: "rule_economais",
+      scope: "comment",
+      name: "EconoMais Padrão",
+      type: "keyword",
+      enabled: true,
+      keywords: ["economais"],
+      reply: "Fala, meu nobre! Segue o link do EconoMais:",
     },
     {
       id: "welcome",
@@ -54,20 +64,42 @@ const DEFAULT_DATA = {
 };
 
 function ensureDbFile() {
-  if (!fs.existsSync(DB_PATH)) {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DATA, null, 2));
+  try {
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(DB_PATH)) {
+      fs.writeFileSync(DB_PATH, JSON.stringify(DEFAULT_DATA, null, 2), "utf-8");
+    }
+  } catch (error) {
+    console.error("Erro ao inicializar o banco de dados:", error);
   }
 }
 
 function getData() {
   ensureDbFile();
-  const raw = fs.readFileSync(DB_PATH, "utf-8");
-  return JSON.parse(raw);
+  try {
+    const raw = fs.readFileSync(DB_PATH, "utf-8");
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error("Erro ao ler o banco de dados, recuperando estrutura padrão:", error);
+    // Retorna os dados padrão e reseta o arquivo caso corrompa
+    saveData(DEFAULT_DATA);
+    return DEFAULT_DATA;
+  }
 }
 
 function saveData(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+  try {
+    const dir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Erro ao salvar os dados no disco:", error);
+  }
 }
 
 module.exports = { getData, saveData };
