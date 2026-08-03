@@ -1,5 +1,5 @@
 const express = require("express");
-const { getData, saveData } = require("../../data/db"); // ajuste o caminho do db se necessário
+const { getData, saveData } = require("../data/db"); // ajuste o caminho do db se necessário
 
 const router = express.Router();
 
