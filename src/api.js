@@ -1,5 +1,6 @@
-const express = require("express");
-const { getData, saveData } = require("../data/db"); // ajuste o caminho do db se necessário
+const express = require('express');
+const path = require('path');
+const { getData, saveData } = require(path.join(__dirname, '../data/db'));
 
 const router = express.Router();
 
