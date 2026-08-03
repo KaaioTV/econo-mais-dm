@@ -2,7 +2,7 @@ const API = "/api";
 let currentEditingId = null;
 let currentEditingScope = "dm";
 
-// --- Navegação entre views ---
+// --- Navegação entre Views ---
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("is-active"));
@@ -12,21 +12,21 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
   });
 });
 
-// --- Status de conexão com o backend ---
+// --- Status de Conexão com o Backend ---
 async function checkConnection() {
   const pill = document.getElementById("connStatus");
   try {
     const res = await fetch(`${API}/stats`);
     if (!res.ok) throw new Error();
     pill.classList.add("is-live");
-    pill.innerHTML = `<span class="pulse"></span> backend conectado`;
+    pill.innerHTML = `<span class="pulse"></span> <span>sistema online</span>`;
   } catch {
     pill.classList.remove("is-live");
-    pill.innerHTML = `<span class="pulse"></span> backend offline`;
+    pill.innerHTML = `<span class="pulse"></span> <span>backend offline</span>`;
   }
 }
 
-// --- Visão geral ---
+// --- Métricas e Estatísticas ---
 async function loadStats() {
   try {
     const res = await fetch(`${API}/stats`);
@@ -50,7 +50,7 @@ async function loadInbox() {
     const conversations = await res.json();
 
     if (!conversations.length) {
-      list.innerHTML = `<div class="empty-state">Nenhuma conversa ainda.</div>`;
+      list.innerHTML = `<div class="empty-state">Nenhuma conversa registrada até o momento.</div>`;
       return;
     }
 
@@ -63,7 +63,7 @@ async function loadInbox() {
         return `
           <div class="convo-card">
             <div class="convo-head">
-              <span class="convo-id">${escapeHtml(c.userId)}</span>
+              <span class="convo-id">@${escapeHtml(c.userId)}</span>
               <span class="convo-time">${time}</span>
             </div>
             <div class="convo-last ${fromClass}">${lastText}</div>
@@ -71,11 +71,11 @@ async function loadInbox() {
       })
       .join("");
   } catch (err) {
-    list.innerHTML = `<div class="empty-state">Não foi possível carregar as conversas.</div>`;
+    list.innerHTML = `<div class="empty-state">Erro ao carregar o inbox de conversas.</div>`;
   }
 }
 
-// --- Log de DMs enviadas por comentário ---
+// --- Log de DMs Enviadas por Comentário ---
 async function loadCommentLog() {
   const list = document.getElementById("commentLogList");
   try {
@@ -83,7 +83,7 @@ async function loadCommentLog() {
     const replies = await res.json();
 
     if (!replies.length) {
-      list.innerHTML = `<div class="empty-state">Nenhuma DM de comentário enviada ainda.</div>`;
+      list.innerHTML = `<div class="empty-state">Nenhuma DM disparada por comentário ainda.</div>`;
       return;
     }
 
@@ -96,12 +96,12 @@ async function loadCommentLog() {
               <span class="convo-id">@${escapeHtml(r.username)}</span>
               <span class="convo-time">${time}</span>
             </div>
-            <div class="convo-last">Gatilho: ${escapeHtml(r.keyword)}</div>
+            <div class="convo-last">Gatilho acionado: <strong>${escapeHtml(r.keyword)}</strong></div>
           </div>`;
       })
       .join("");
   } catch (err) {
-    list.innerHTML = `<div class="empty-state">Não foi possível carregar o histórico.</div>`;
+    list.innerHTML = `<div class="empty-state">Erro ao carregar logs de comentários.</div>`;
   }
 }
 
@@ -113,11 +113,11 @@ async function loadRules() {
     const rules = await res.json();
     renderRulesList(list, rules, "dm");
   } catch (err) {
-    list.innerHTML = `<div class="empty-state">Não foi possível carregar as regras.</div>`;
+    list.innerHTML = `<div class="empty-state">Erro ao carregar regras de DM.</div>`;
   }
 }
 
-// --- Regras de comentário ---
+// --- Regras de Comentário ---
 async function loadCommentRules() {
   const list = document.getElementById("commentRulesList");
   try {
@@ -125,17 +125,17 @@ async function loadCommentRules() {
     const rules = await res.json();
     renderRulesList(list, rules, "comment");
   } catch (err) {
-    list.innerHTML = `<div class="empty-state">Não foi possível carregar as regras.</div>`;
+    list.innerHTML = `<div class="empty-state">Erro ao carregar regras de comentário.</div>`;
   }
 }
 
 function renderRulesList(list, rules, scope) {
   if (!rules.length) {
-    list.innerHTML = `<div class="empty-state">Nenhuma regra cadastrada ainda.</div>`;
+    list.innerHTML = `<div class="empty-state">Nenhuma regra cadastrada nesta categoria.</div>`;
     return;
   }
 
-  const typeLabels = { welcome: "Boas-vindas", keyword: "Palavra-chave", fallback: "Padrão" };
+  const typeLabels = { welcome: "Boas-Vindas", keyword: "Palavra-Chave", fallback: "Fallback Padrão" };
 
   list.innerHTML = rules
     .map(
@@ -144,7 +144,7 @@ function renderRulesList(list, rules, scope) {
         <div class="rule-main">
           <div class="rule-name">${escapeHtml(r.name)}</div>
           <span class="rule-type">${typeLabels[r.type] || r.type}</span>
-          ${r.keywords?.length ? `<div class="rule-reply">Gatilhos: ${r.keywords.map(escapeHtml).join(", ")}</div>` : ""}
+          ${r.keywords?.length ? `<div class="rule-keywords">Gatilhos: ${r.keywords.map(escapeHtml).join(", ")}</div>` : ""}
           <div class="rule-reply">${escapeHtml(r.reply)}</div>
         </div>
         <div class="rule-actions">
@@ -178,14 +178,14 @@ async function handleRuleAction(action, id, rules, scope) {
     reload();
     loadStats();
   } else if (action === "delete") {
-    if (!confirm(`Excluir a regra "${rule.name}"?`)) return;
+    if (!confirm(`Deseja realmente excluir a regra "${rule.name}"?`)) return;
     await fetch(`${API}/rules/${id}`, { method: "DELETE" });
     reload();
     loadStats();
   }
 }
 
-// --- Modal de criação/edição ---
+// --- Gerenciamento do Modal ---
 const backdrop = document.getElementById("modalBackdrop");
 const ruleTypeSelect = document.getElementById("ruleType");
 const ruleTypeField = document.getElementById("ruleTypeField");
@@ -203,11 +203,11 @@ function openModal(rule = null, scope = "dm") {
 
   const isComment = currentEditingScope === "comment";
 
-  document.getElementById("modalTitle").textContent = rule
-    ? "Editar regra"
+  document.getElementById("modalTitletextContent" || "modalTitle").textContent = rule
+    ? "Editar Configuração de Regra"
     : isComment
-    ? "Nova regra de comentário"
-    : "Nova regra de DM";
+    ? "Nova Regra de Comentário para DM"
+    : "Nova Regra de Mensagem Direta";
 
   document.getElementById("ruleName").value = rule?.name || "";
   document.getElementById("ruleKeywords").value = rule?.keywords?.join(", ") || "";
@@ -215,11 +215,10 @@ function openModal(rule = null, scope = "dm") {
   document.getElementById("ruleEnabled").checked = rule ? rule.enabled : true;
 
   document.getElementById("ruleReplyLabel").textContent = isComment
-    ? "DM privada enviada automaticamente"
-    : "Resposta automática";
+    ? "DM Privada Automática Enviada"
+    : "Resposta Automática na Direct";
 
   if (isComment) {
-    // Regras de comentário só existem como "palavra-chave", então escondemos o seletor de tipo
     ruleTypeField.style.display = "none";
     ruleTypeSelect.value = "keyword";
     keywordsField.style.display = "flex";
@@ -240,6 +239,7 @@ function closeModal() {
 document.getElementById("newRuleBtn").addEventListener("click", () => openModal(null, "dm"));
 document.getElementById("newCommentRuleBtn").addEventListener("click", () => openModal(null, "comment"));
 document.getElementById("cancelRuleBtn").addEventListener("click", closeModal);
+document.getElementById("cancelRuleBtnSecondary").addEventListener("click", closeModal);
 backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
 
 document.getElementById("saveRuleBtn").addEventListener("click", async () => {
@@ -251,11 +251,11 @@ document.getElementById("saveRuleBtn").addEventListener("click", async () => {
   const enabled = document.getElementById("ruleEnabled").checked;
 
   if (!name || !reply) {
-    alert("Preencha o nome da regra e a resposta.");
+    alert("Por favor, preencha o nome da regra e o texto da resposta.");
     return;
   }
   if (type === "keyword" && !keywordsRaw) {
-    alert("Preencha ao menos uma palavra-chave.");
+    alert("Insira ao menos uma palavra-chave para este gatilho.");
     return;
   }
 
@@ -288,7 +288,7 @@ document.getElementById("saveRuleBtn").addEventListener("click", async () => {
   loadStats();
 });
 
-// --- Util ---
+// --- Utilitário de Escape HTML ---
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -296,7 +296,7 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
-// --- Boot ---
+// --- Inicialização e Refresh Automático ---
 function refreshAll() {
   checkConnection();
   loadStats();
@@ -305,5 +305,6 @@ function refreshAll() {
   loadCommentRules();
   loadCommentLog();
 }
+
 refreshAll();
-setInterval(refreshAll, 8000); // atualiza sozinho a cada 8s
+setInterval(refreshAll, 8000); // Sincronização automática a cada 8 segundos
