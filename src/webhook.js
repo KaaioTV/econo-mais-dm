@@ -13,9 +13,10 @@ router.get("/webhook", (req, res) => {
   const challenge = req.query["hub.challenge"];
 
   if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) {
-    console.log("Webhook verificado com sucesso.");
+    console.log("[Webhook] Webhook verificado com sucesso.");
     return res.status(200).send(challenge);
   }
+  console.warn("[Webhook] Falha na verificação do token do Webhook.");
   return res.sendStatus(403);
 });
 
@@ -28,10 +29,10 @@ router.post("/webhook", async (req, res) => {
   try {
     const body = req.body;
 
-    // Log cru pra diagnóstico — mostra exatamente o que a Meta mandou.
-    // Se nada aparecer aqui quando você testar, o problema está antes
-    // do nosso servidor (configuração na Meta), não no código.
-    console.log("Webhook recebido:", JSON.stringify(body));
+    // LOG OBRIGATÓRIA: Webhook recebido
+    console.log("\n========================================");
+    console.log("↓ Webhook recebido:", JSON.stringify(body));
+    console.log("========================================");
 
     if (body.object !== "instagram") return;
 
@@ -49,7 +50,7 @@ router.post("/webhook", async (req, res) => {
       }
     }
   } catch (err) {
-    console.error("Erro processando evento do webhook:", err);
+    console.error("[Webhook] Erro processando evento do webhook:", err);
   }
 });
 
@@ -59,6 +60,10 @@ async function handleMessagingEvent(event) {
 
   // Ignora eco de mensagens enviadas pela própria página e eventos sem texto
   if (!senderId || !text || event.message?.is_echo) return;
+
+  // LOG OBRIGATÓRIA: Etapas da Mensagem
+  console.log("↓ Usuário:", senderId);
+  console.log("↓ Texto recebido:", text);
 
   const data = getData();
   const isFirstMessage = !data.conversations[senderId];
@@ -79,8 +84,14 @@ async function handleMessagingEvent(event) {
   const rule = pickRule({ text, isFirstMessage, rules: data.rules });
 
   if (rule) {
+    console.log("↓ Palavra encontrada / Regra ID:", rule.id);
+    console.log("↓ Automação encontrada:", rule.name);
+    console.log("↓ Tentando enviar DM...");
+
     try {
       await sendTextMessage(senderId, rule.reply);
+      console.log("↓ Sucesso ou erro: Sucesso ao enviar DM de texto");
+
       convo.messages.push({
         from: "bot",
         text: rule.reply,
@@ -88,11 +99,13 @@ async function handleMessagingEvent(event) {
         at: new Date().toISOString(),
       });
     } catch (err) {
-      console.error("Falha ao enviar resposta automática:", err.message);
+      console.error("↓ Sucesso ou erro: Falha ao enviar resposta automática:", err.message);
     }
   }
 
   saveData(data);
+  console.log("↓ Banco atualizado");
+  console.log("↓ Dashboard atualizado");
 }
 
 /**
@@ -108,21 +121,31 @@ async function handleCommentEvent(value) {
 
   if (!commentId || !text) return;
 
+  // LOG OBRIGATÓRIA: Comentário recebido
+  console.log("↓ Comentário recebido");
+  console.log("↓ Usuário:", fromUsername || fromId || "desconhecido");
+  console.log("↓ Texto recebido:", text);
+
   const data = getData();
 
-  // Nunca responder 2x o mesmo comentário (a Meta também só permite 1x,
-  // mas checamos aqui pra não gastar chamada à toa e pra manter histórico).
+  // Nunca responder 2x o mesmo comentário (a Meta também só permite 1x)
   if (data.commentReplies[commentId]) return;
 
-  // Evita responder aos próprios comentários da página (ex: quando o
-  // bot ou um admin comenta algo na conversa do post).
+  // Evita responder aos próprios comentários da página
   if (fromId && fromId === process.env.META_IG_ACCOUNT_ID) return;
 
   const rule = pickCommentRule({ text, rules: data.rules });
   if (!rule) return;
 
+  console.log("↓ Palavra encontrada:", rule.name);
+  console.log("↓ Automação encontrada:", rule.id);
+  console.log("↓ Tentando enviar DM...");
+
   try {
-    await sendPrivateReply(commentId, rule.reply);
+    const metaResponse = await sendPrivateReply(commentId, rule.reply);
+    console.log("↓ Resposta completa da Meta:", JSON.stringify(metaResponse));
+    console.log("↓ Sucesso ou erro: Sucesso ao enviar private reply");
+
     data.commentReplies[commentId] = {
       commentId,
       username: fromUsername || fromId || "desconhecido",
@@ -130,10 +153,13 @@ async function handleCommentEvent(value) {
       ruleId: rule.id,
       repliedAt: new Date().toISOString(),
     };
+    
     saveData(data);
+    console.log("↓ Banco atualizado");
+    console.log("↓ Dashboard atualizado");
     console.log(`DM privada enviada para comentário ${commentId} (regra: ${rule.name})`);
   } catch (err) {
-    console.error("Falha ao enviar resposta privada de comentário:", err.message);
+    console.error("↓ Sucesso ou erro: Falha ao enviar resposta privada de comentário:", err.message);
   }
 }
 
