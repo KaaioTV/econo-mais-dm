@@ -1,22 +1,32 @@
+/**
+ * DirectFlow Quantum Engine v2.5 - Frontend Client Script
+ * Otimizado para alta performance em Desktop, iOS e Android.
+ */
+
 const API = "/api";
 let currentEditingId = null;
 let currentEditingScope = "dm";
 
-// --- Navegação entre Views ---
+// --- Navegação entre Views (Otimizada para Toque e Clique) ---
 document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => {
+  const activateView = (e) => {
+    e.preventDefault();
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("is-active"));
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("is-active"));
     btn.classList.add("is-active");
-    document.getElementById(`view-${btn.dataset.view}`).classList.add("is-active");
-  });
+    const targetView = document.getElementById(`view-${btn.dataset.view}`);
+    if (targetView) targetView.classList.add("is-active");
+  };
+  btn.addEventListener("click", activateView);
+  btn.addEventListener("touchend", activateView);
 });
 
 // --- Status de Conexão com o Backend ---
 async function checkConnection() {
   const pill = document.getElementById("connStatus");
+  if (!pill) return;
   try {
-    const res = await fetch(`${API}/stats`);
+    const res = await fetch(`${API}/stats`, { cache: "no-store" });
     if (!res.ok) throw new Error();
     pill.classList.add("is-live");
     pill.innerHTML = `<span class="pulse"></span> <span>sistema online</span>`;
@@ -29,14 +39,21 @@ async function checkConnection() {
 // --- Métricas e Estatísticas ---
 async function loadStats() {
   try {
-    const res = await fetch(`${API}/stats`);
+    const res = await fetch(`${API}/stats`, { cache: "no-store" });
+    if (!res.ok) return;
     const stats = await res.json();
-    document.getElementById("statConversations").textContent = stats.totalConversations;
-    document.getElementById("statMessages").textContent = stats.totalMessages;
-    document.getElementById("statActive").textContent = stats.activeLast24h;
-    document.getElementById("statRules").textContent = stats.activeRules;
-    document.getElementById("statCommentRules").textContent = stats.activeCommentRules;
-    document.getElementById("statCommentReplies").textContent = stats.totalCommentReplies;
+    
+    const setSafeText = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val ?? 0;
+    };
+
+    setSafeText("statConversations", stats.totalConversations);
+    setSafeText("statMessages", stats.totalMessages);
+    setSafeText("statActive", stats.activeLast24h);
+    setSafeText("statRules", stats.activeRules);
+    setSafeText("statCommentRules", stats.activeCommentRules);
+    setSafeText("statCommentReplies", stats.totalCommentReplies);
   } catch (err) {
     console.error("Erro ao carregar estatísticas:", err);
   }
@@ -45,18 +62,19 @@ async function loadStats() {
 // --- Conversas (DM) ---
 async function loadInbox() {
   const list = document.getElementById("inboxList");
+  if (!list) return;
   try {
-    const res = await fetch(`${API}/conversations`);
+    const res = await fetch(`${API}/conversations`, { cache: "no-store" });
     const conversations = await res.json();
 
-    if (!conversations.length) {
+    if (!Array.isArray(conversations) || !conversations.length) {
       list.innerHTML = `<div class="empty-state">Nenhuma conversa registrada até o momento.</div>`;
       return;
     }
 
     list.innerHTML = conversations
       .map((c) => {
-        const last = c.messages[c.messages.length - 1];
+        const last = c.messages?.[c.messages.length - 1];
         const lastText = last ? escapeHtml(last.text) : "";
         const fromClass = last?.from === "bot" ? "from-bot" : "";
         const time = c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString("pt-BR") : "";
@@ -78,11 +96,12 @@ async function loadInbox() {
 // --- Log de DMs Enviadas por Comentário ---
 async function loadCommentLog() {
   const list = document.getElementById("commentLogList");
+  if (!list) return;
   try {
-    const res = await fetch(`${API}/comment-replies`);
+    const res = await fetch(`${API}/comment-replies`, { cache: "no-store" });
     const replies = await res.json();
 
-    if (!replies.length) {
+    if (!Array.isArray(replies) || !replies.length) {
       list.innerHTML = `<div class="empty-state">Nenhuma DM disparada por comentário ainda.</div>`;
       return;
     }
@@ -108,8 +127,9 @@ async function loadCommentLog() {
 // --- Regras de DM ---
 async function loadRules() {
   const list = document.getElementById("rulesList");
+  if (!list) return;
   try {
-    const res = await fetch(`${API}/rules?scope=dm`);
+    const res = await fetch(`${API}/rules?scope=dm`, { cache: "no-store" });
     const rules = await res.json();
     renderRulesList(list, rules, "dm");
   } catch (err) {
@@ -120,8 +140,9 @@ async function loadRules() {
 // --- Regras de Comentário ---
 async function loadCommentRules() {
   const list = document.getElementById("commentRulesList");
+  if (!list) return;
   try {
-    const res = await fetch(`${API}/rules?scope=comment`);
+    const res = await fetch(`${API}/rules?scope=comment`, { cache: "no-store" });
     const rules = await res.json();
     renderRulesList(list, rules, "comment");
   } catch (err) {
@@ -129,8 +150,9 @@ async function loadCommentRules() {
   }
 }
 
+// --- Renderizador de Regras Blindado para Mobile/Desktop ---
 function renderRulesList(list, rules, scope) {
-  if (!rules.length) {
+  if (!Array.isArray(rules) || !rules.length) {
     list.innerHTML = `<div class="empty-state">Nenhuma regra cadastrada nesta categoria.</div>`;
     return;
   }
@@ -148,16 +170,23 @@ function renderRulesList(list, rules, scope) {
           <div class="rule-reply">${escapeHtml(r.reply)}</div>
         </div>
         <div class="rule-actions">
-          <button data-action="edit" data-id="${r.id}">Editar</button>
-          <button data-action="toggle" data-id="${r.id}">${r.enabled ? "Desligar" : "Ligar"}</button>
-          <button data-action="delete" data-id="${r.id}">Excluir</button>
+          <button type="button" class="btn-action" data-action="edit" data-id="${r.id}">Editar</button>
+          <button type="button" class="btn-action" data-action="toggle" data-id="${r.id}">${r.enabled ? "Desligar" : "Ligar"}</button>
+          <button type="button" class="btn-action" data-action="delete" data-id="${r.id}">Excluir</button>
         </div>
       </div>`
     )
     .join("");
 
-  list.querySelectorAll("button[data-action]").forEach((btn) => {
-    btn.addEventListener("click", () => handleRuleAction(btn.dataset.action, btn.dataset.id, rules, scope));
+  // Delegação de eventos robusta compatível com click e touch
+  list.querySelectorAll(".btn-action").forEach((btn) => {
+    const triggerAction = (e) => {
+      e.preventDefault();
+      const action = btn.getAttribute("data-action");
+      const id = btn.getAttribute("data-id");
+      handleRuleAction(action, id, rules, scope);
+    };
+    btn.addEventListener("click", triggerAction);
   });
 }
 
@@ -170,133 +199,196 @@ async function handleRuleAction(action, id, rules, scope) {
   if (action === "edit") {
     openModal(rule, scope);
   } else if (action === "toggle") {
-    await fetch(`${API}/rules/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled: !rule.enabled }),
-    });
-    reload();
-    loadStats();
+    try {
+      await fetch(`${API}/rules/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !rule.enabled }),
+      });
+      reload();
+      loadStats();
+    } catch (err) {
+      console.error("Erro ao alterar status da regra:", err);
+    }
   } else if (action === "delete") {
     if (!confirm(`Deseja realmente excluir a regra "${rule.name}"?`)) return;
-    await fetch(`${API}/rules/${id}`, { method: "DELETE" });
-    reload();
-    loadStats();
+    try {
+      await fetch(`${API}/rules/${id}`, { method: "DELETE" });
+      reload();
+      loadStats();
+    } catch (err) {
+      console.error("Erro ao excluir regra:", err);
+    }
   }
 }
 
-// --- Gerenciamento do Modal ---
+// --- Gerenciamento Seguro do Modal ---
 const backdrop = document.getElementById("modalBackdrop");
 const ruleTypeSelect = document.getElementById("ruleType");
 const ruleTypeField = document.getElementById("ruleTypeField");
 const keywordsField = document.getElementById("keywordsField");
 
 function toggleKeywordsField() {
-  keywordsField.style.display = ruleTypeSelect.value === "keyword" ? "flex" : "none";
+  if (keywordsField && ruleTypeSelect) {
+    keywordsField.style.display = ruleTypeSelect.value === "keyword" ? "flex" : "none";
+  }
 }
-ruleTypeSelect.addEventListener("change", toggleKeywordsField);
+
+if (ruleTypeSelect) {
+  ruleTypeSelect.addEventListener("change", toggleKeywordsField);
+}
 
 function openModal(rule = null, scope = "dm") {
   currentEditingId = rule?.id || null;
   currentEditingScope = rule?.scope || scope;
-  document.getElementById("ruleScope").value = currentEditingScope;
+  
+  const scopeInput = document.getElementById("ruleScope");
+  if (scopeInput) scopeInput.value = currentEditingScope;
 
   const isComment = currentEditingScope === "comment";
 
-  document.getElementById("modalTitletextContent" || "modalTitle").textContent = rule
-    ? "Editar Configuração de Regra"
-    : isComment
-    ? "Nova Regra de Comentário para DM"
-    : "Nova Regra de Mensagem Direta";
+  const modalTitle = document.getElementById("modalTitle") || document.getElementById("modalTitletextContent");
+  if (modalTitle) {
+    modalTitle.textContent = rule
+      ? "Editar Configuração de Regra"
+      : isComment
+      ? "Nova Regra de Comentário para DM"
+      : "Nova Regra de Mensagem Direta";
+  }
 
-  document.getElementById("ruleName").value = rule?.name || "";
-  document.getElementById("ruleKeywords").value = rule?.keywords?.join(", ") || "";
-  document.getElementById("ruleReply").value = rule?.reply || "";
-  document.getElementById("ruleEnabled").checked = rule ? rule.enabled : true;
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  };
 
-  document.getElementById("ruleReplyLabel").textContent = isComment
-    ? "DM Privada Automática Enviada"
-    : "Resposta Automática na Direct";
+  const setCheck = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = val;
+  };
+
+  setVal("ruleName", rule?.name || "");
+  setVal("ruleKeywords", Array.isArray(rule?.keywords) ? rule.keywords.join(", ") : (rule?.keywords || ""));
+  setVal("ruleReply", rule?.reply || "");
+  setCheck("ruleEnabled", rule ? rule.enabled : true);
+
+  const replyLabel = document.getElementById("ruleReplyLabel");
+  if (replyLabel) {
+    replyLabel.textContent = isComment ? "DM Privada Automática Enviada" : "Resposta Automática na Direct";
+  }
 
   if (isComment) {
-    ruleTypeField.style.display = "none";
-    ruleTypeSelect.value = "keyword";
-    keywordsField.style.display = "flex";
+    if (ruleTypeField) ruleTypeField.style.display = "none";
+    if (ruleTypeSelect) ruleTypeSelect.value = "keyword";
+    if (keywordsField) keywordsField.style.display = "flex";
   } else {
-    ruleTypeField.style.display = "flex";
-    ruleTypeSelect.value = rule?.type || "keyword";
+    if (ruleTypeField) ruleTypeField.style.display = "flex";
+    if (ruleTypeSelect) ruleTypeSelect.value = rule?.type || "keyword";
     toggleKeywordsField();
   }
 
-  backdrop.classList.add("is-open");
+  if (backdrop) backdrop.classList.add("is-open");
 }
 
 function closeModal() {
-  backdrop.classList.remove("is-open");
+  if (backdrop) backdrop.classList.remove("is-open");
   currentEditingId = null;
 }
 
-document.getElementById("newRuleBtn").addEventListener("click", () => openModal(null, "dm"));
-document.getElementById("newCommentRuleBtn").addEventListener("click", () => openModal(null, "comment"));
-document.getElementById("cancelRuleBtn").addEventListener("click", closeModal);
-document.getElementById("cancelRuleBtnSecondary").addEventListener("click", closeModal);
-backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
-
-document.getElementById("saveRuleBtn").addEventListener("click", async () => {
-  const name = document.getElementById("ruleName").value.trim();
-  const scope = document.getElementById("ruleScope").value;
-  const type = scope === "comment" ? "keyword" : document.getElementById("ruleType").value;
-  const keywordsRaw = document.getElementById("ruleKeywords").value.trim();
-  const reply = document.getElementById("ruleReply").value.trim();
-  const enabled = document.getElementById("ruleEnabled").checked;
-
-  if (!name || !reply) {
-    alert("Por favor, preencha o nome da regra e o texto da resposta.");
-    return;
+// Listeners de Abertura/Fechamento do Modal
+const bindClickOrTouch = (id, handler) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("click", handler);
+    el.addEventListener("touchend", (e) => { e.preventDefault(); handler(e); });
   }
-  if (type === "keyword" && !keywordsRaw) {
-    alert("Insira ao menos uma palavra-chave para este gatilho.");
-    return;
-  }
+};
 
-  const payload = {
-    name,
-    type,
-    scope,
-    reply,
-    enabled,
-    keywords: type === "keyword"
-      ? keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean)
-      : undefined,
+bindClickOrTouch("newRuleBtn", () => openModal(null, "dm"));
+bindClickOrTouch("newCommentRuleBtn", () => openModal(null, "comment"));
+bindClickOrTouch("cancelRuleBtn", closeModal);
+bindClickOrTouch("cancelRuleBtnSecondary", closeModal);
+
+if (backdrop) {
+  backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
+}
+
+// --- Salvar Regra (POST / PUT) ---
+const saveBtn = document.getElementById("saveRuleBtn");
+if (saveBtn) {
+  const handleSave = async (e) => {
+    e.preventDefault();
+    
+    const nameEl = document.getElementById("ruleName");
+    const scopeEl = document.getElementById("ruleScope");
+    const keywordsEl = document.getElementById("ruleKeywords");
+    const replyEl = document.getElementById("ruleReply");
+    const enabledEl = document.getElementById("ruleEnabled");
+
+    const name = nameEl ? nameEl.value.trim() : "";
+    const scope = scopeEl ? scopeEl.value : "dm";
+    const type = scope === "comment" ? "keyword" : (ruleTypeSelect ? ruleTypeSelect.value : "keyword");
+    const keywordsRaw = keywordsEl ? keywordsEl.value.trim() : "";
+    const reply = replyEl ? replyEl.value.trim() : "";
+    const enabled = enabledEl ? enabledEl.checked : true;
+
+    if (!name || !reply) {
+      alert("Por favor, preencha o nome da regra e o texto da resposta.");
+      return;
+    }
+    if (type === "keyword" && !keywordsRaw) {
+      alert("Insira ao menos uma palavra-chave para este gatilho.");
+      return;
+    }
+
+    const payload = {
+      name,
+      type,
+      scope,
+      reply,
+      enabled,
+      keywords: type === "keyword"
+        ? keywordsRaw.split(",").map((k) => k.trim()).filter(Boolean)
+        : undefined,
+    };
+
+    const url = currentEditingId ? `${API}/rules/${currentEditingId}` : `${API}/rules`;
+    const method = currentEditingId ? "PUT" : "POST";
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) throw new Error("Falha ao salvar regra no servidor.");
+
+      closeModal();
+      if (scope === "comment") {
+        loadCommentRules();
+      } else {
+        loadRules();
+      }
+      loadStats();
+    } catch (err) {
+      console.error("Erro ao salvar:", err);
+      alert("Erro ao salvar a regra. Verifique a conexão.");
+    }
   };
 
-  const url = currentEditingId ? `${API}/rules/${currentEditingId}` : `${API}/rules`;
-  const method = currentEditingId ? "PUT" : "POST";
-
-  await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  closeModal();
-  if (scope === "comment") {
-    loadCommentRules();
-  } else {
-    loadRules();
-  }
-  loadStats();
-});
+  saveBtn.addEventListener("click", handleSave);
+  saveBtn.addEventListener("touchend", handleSave);
+}
 
 // --- Utilitário de Escape HTML ---
 function escapeHtml(str) {
-  return String(str)
+  return String(str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
 
-// --- Inicialização e Refresh Automático ---
+// --- Inicialização e Sincronização Automática ---
 function refreshAll() {
   checkConnection();
   loadStats();
@@ -306,5 +398,8 @@ function refreshAll() {
   loadCommentLog();
 }
 
+// Executa na carga inicial
 refreshAll();
-setInterval(refreshAll, 8000); // Sincronização automática a cada 8 segundos
+
+// Loop inteligente de atualização em background (a cada 10 segundos)
+setInterval(refreshAll, 10000);
