@@ -1,12 +1,9 @@
 const express = require("express");
-const { getData, saveData } = require("./db");
+const { getData, saveData } = require("../db"); // ajuste o caminho do db se necessário
 
 const router = express.Router();
 
 // --- Regras de automação ---
-// scope: "dm" (DirectFlow, responde mensagens diretas) ou
-//        "comment" (responde comentários com DM privada, estilo CreatorFlow)
-
 router.get("/rules", (req, res) => {
   const data = getData();
   const { scope } = req.query;
@@ -64,8 +61,7 @@ router.delete("/rules/:id", (req, res) => {
   res.status(204).send();
 });
 
-// --- Conversas (DirectFlow) ---
-
+// --- Conversas ---
 router.get("/conversations", (req, res) => {
   const data = getData();
   const list = Object.values(data.conversations).sort(
@@ -81,8 +77,7 @@ router.get("/conversations/:userId", (req, res) => {
   res.json(convo);
 });
 
-// --- Respostas de comentário já enviadas (estilo CreatorFlow) ---
-
+// --- Respostas de comentário ---
 router.get("/comment-replies", (req, res) => {
   const data = getData();
   const list = Object.values(data.commentReplies || {}).sort(
@@ -91,8 +86,7 @@ router.get("/comment-replies", (req, res) => {
   res.json(list);
 });
 
-// --- Métricas resumidas para o topo do dashboard ---
-
+// --- Métricas resumidas ---
 router.get("/stats", (req, res) => {
   const data = getData();
   const conversations = Object.values(data.conversations);
