@@ -16,7 +16,8 @@ function normalize(text) {
  * @returns {object|null} a regra escolhida, ou null se nenhuma regra ativa combinar
  */
 function pickRule({ text, isFirstMessage, rules }) {
-  const enabledRules = rules.filter((r) => r.enabled);
+  // Só olha regras da automação de DM (ignora as de comentário)
+  const enabledRules = rules.filter((r) => r.enabled && (r.scope || "dm") === "dm");
 
   if (isFirstMessage) {
     const welcome = enabledRules.find((r) => r.type === "welcome");
@@ -34,4 +35,26 @@ function pickRule({ text, isFirstMessage, rules }) {
   return fallback || null;
 }
 
-module.exports = { pickRule, normalize };
+/**
+ * Decide qual regra de COMENTÁRIO combina com o texto de um comentário
+ * recebido em um post/reels. Não tem welcome/fallback aqui — só dispara
+ * se uma palavra-chave específica bater, igual ManyChat/CreatorFlow.
+ *
+ * @param {object} params
+ * @param {string} params.text - texto do comentário
+ * @param {Array} params.rules - lista de regras cadastradas no dashboard
+ * @returns {object|null}
+ */
+function pickCommentRule({ text, rules }) {
+  const enabledRules = rules.filter((r) => r.enabled && r.scope === "comment");
+  const normalizedText = normalize(text);
+
+  return (
+    enabledRules.find((r) => {
+      if (!r.keywords?.length) return false;
+      return r.keywords.some((kw) => normalizedText.includes(normalize(kw)));
+    }) || null
+  );
+}
+
+module.exports = { pickRule, pickCommentRule, normalize };

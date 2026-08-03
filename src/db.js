@@ -9,8 +9,40 @@ const DB_PATH = path.join(__dirname, "..", "data", "db.json");
 
 const DEFAULT_DATA = {
   rules: [
+    // --- Automações de comentário → DM privada (estilo CreatorFlow/ManyChat) ---
+    // Disparam quando alguém comenta em um post/reels com a palavra-chave.
+    {
+      id: "comment_eu_quero",
+      scope: "comment",
+      name: "Comentário: eu quero",
+      type: "keyword",
+      enabled: true,
+      keywords: ["eu quero"],
+      reply: "Oi! Vi que você comentou no nosso post 😊 O link do Insights Packet é: COLE-SEU-LINK-AQUI. Qualquer dúvida, é só chamar por aqui!",
+    },
+    {
+      id: "comment_link",
+      scope: "comment",
+      name: "Comentário: link",
+      type: "keyword",
+      enabled: true,
+      keywords: ["link"],
+      reply: "Oi! Vi que você comentou no nosso post 😊 O link do Insights Packet é: COLE-SEU-LINK-AQUI. Qualquer dúvida, é só chamar por aqui!",
+    },
+    {
+      id: "comment_economais",
+      scope: "comment",
+      name: "Comentário: economais",
+      type: "keyword",
+      enabled: true,
+      keywords: ["economais"],
+      reply: "Oi! Vi que você comentou no nosso post 😊 O link do Insights Packet é: COLE-SEU-LINK-AQUI. Qualquer dúvida, é só chamar por aqui!",
+    },
+
+    // --- Automações de DM (DirectFlow) ---
     {
       id: "welcome",
+      scope: "dm",
       name: "Boas-vindas (primeira mensagem)",
       type: "welcome",
       enabled: true,
@@ -18,6 +50,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_preco",
+      scope: "dm",
       name: "Preço",
       type: "keyword",
       enabled: true,
@@ -26,6 +59,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_como_funciona",
+      scope: "dm",
       name: "Como funciona",
       type: "keyword",
       enabled: true,
@@ -34,6 +68,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_garantia",
+      scope: "dm",
       name: "Garantia",
       type: "keyword",
       enabled: true,
@@ -42,6 +77,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_aparecer",
+      scope: "dm",
       name: "Precisa aparecer",
       type: "keyword",
       enabled: true,
@@ -50,6 +86,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_iniciante",
+      scope: "dm",
       name: "Funciona para iniciante",
       type: "keyword",
       enabled: true,
@@ -58,6 +95,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_conteudo",
+      scope: "dm",
       name: "O que vou aprender",
       type: "keyword",
       enabled: true,
@@ -66,6 +104,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_suporte",
+      scope: "dm",
       name: "Suporte",
       type: "keyword",
       enabled: true,
@@ -74,6 +113,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_entrega",
+      scope: "dm",
       name: "Como recebe",
       type: "keyword",
       enabled: true,
@@ -82,6 +122,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_pagamento",
+      scope: "dm",
       name: "Formas de pagamento",
       type: "keyword",
       enabled: true,
@@ -90,6 +131,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_anuncios",
+      scope: "dm",
       name: "Precisa investir em anúncios",
       type: "keyword",
       enabled: true,
@@ -98,6 +140,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "rule_comprar",
+      scope: "dm",
       name: "Interesse em comprar",
       type: "keyword",
       enabled: true,
@@ -106,6 +149,7 @@ const DEFAULT_DATA = {
     },
     {
       id: "fallback",
+      scope: "dm",
       name: "Resposta padrão (nenhuma regra bateu)",
       type: "fallback",
       enabled: true,
@@ -116,6 +160,10 @@ const DEFAULT_DATA = {
   // conversations[igScopedUserId] = {
   //   userId, firstSeenAt, lastMessageAt, messages: [{from, text, at}], tags: []
   // }
+
+  commentReplies: {},
+  // commentReplies[commentId] = { commentId, username, keyword, repliedAt }
+  // guarda quais comentários já receberam DM privada, pra nunca responder 2x o mesmo comentário
 };
 
 function ensureDbFile() {

@@ -25,10 +25,16 @@
         <span class="nav-dot"></span> Visão geral
       </button>
       <button class="nav-item" data-view="inbox">
-        <span class="nav-dot"></span> Conversas
+        <span class="nav-dot"></span> Conversas (DM)
       </button>
       <button class="nav-item" data-view="rules">
-        <span class="nav-dot"></span> Automações
+        <span class="nav-dot"></span> Automações de DM
+      </button>
+      <button class="nav-item" data-view="comment-rules">
+        <span class="nav-dot"></span> Automações de comentário
+      </button>
+      <button class="nav-item" data-view="comment-log">
+        <span class="nav-dot"></span> DMs enviadas por comentário
       </button>
     </nav>
 
@@ -62,22 +68,31 @@
           <div class="stat-value" id="statActive">—</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Automações ligadas</div>
+          <div class="stat-label">Automações de DM ligadas</div>
           <div class="stat-value" id="statRules">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Automações de comentário ligadas</div>
+          <div class="stat-value" id="statCommentRules">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">DMs enviadas por comentário</div>
+          <div class="stat-value" id="statCommentReplies">—</div>
         </div>
       </div>
 
       <div class="empty-hint">
         <strong>Ainda sem dados?</strong> Configure o webhook no App da Meta apontando
-        para <code>/webhook</code> e envie uma DM de teste para o Instagram conectado —
-        a conversa aparece aqui em segundos.
+        para <code>/webhook</code>, ative os campos <code>messages</code> e
+        <code>comments</code>, e teste mandando uma DM ou comentando num post —
+        os resultados aparecem aqui em segundos.
       </div>
     </section>
 
-    <!-- CONVERSAS -->
+    <!-- CONVERSAS (DM) -->
     <section id="view-inbox" class="view">
       <header class="view-header">
-        <h1>Conversas</h1>
+        <h1>Conversas (DM)</h1>
         <p>Histórico de DMs recebidas e respostas automáticas enviadas.</p>
       </header>
 
@@ -86,15 +101,38 @@
       </div>
     </section>
 
-    <!-- AUTOMAÇÕES -->
+    <!-- AUTOMAÇÕES DE DM -->
     <section id="view-rules" class="view">
       <header class="view-header">
-        <h1>Automações</h1>
-        <p>Defina o que o DirectFlow responde automaticamente.</p>
+        <h1>Automações de DM</h1>
+        <p>Defina o que o DirectFlow responde automaticamente nas mensagens diretas.</p>
         <button class="btn-primary" id="newRuleBtn">+ Nova regra</button>
       </header>
 
       <div class="rules-list" id="rulesList"></div>
+    </section>
+
+    <!-- AUTOMAÇÕES DE COMENTÁRIO -->
+    <section id="view-comment-rules" class="view">
+      <header class="view-header">
+        <h1>Automações de comentário</h1>
+        <p>Quando alguém comenta com essa palavra-chave num post/reels, manda uma DM privada automática (estilo CreatorFlow).</p>
+        <button class="btn-primary" id="newCommentRuleBtn">+ Nova regra</button>
+      </header>
+
+      <div class="rules-list" id="commentRulesList"></div>
+    </section>
+
+    <!-- LOG DE DMs ENVIADAS POR COMENTÁRIO -->
+    <section id="view-comment-log" class="view">
+      <header class="view-header">
+        <h1>DMs enviadas por comentário</h1>
+        <p>Histórico de quem recebeu DM privada automática por ter comentado.</p>
+      </header>
+
+      <div class="inbox" id="commentLogList">
+        <div class="empty-state">Nenhuma DM de comentário enviada ainda.</div>
+      </div>
     </section>
 
   </main>
@@ -110,7 +148,7 @@
       <input type="text" id="ruleName" placeholder="Ex: Perguntas sobre preço" />
     </label>
 
-    <label class="field">
+    <label class="field" id="ruleTypeField">
       <span>Quando disparar</span>
       <select id="ruleType">
         <option value="keyword">Contém uma palavra-chave</option>
@@ -125,7 +163,7 @@
     </label>
 
     <label class="field">
-      <span>Resposta automática</span>
+      <span id="ruleReplyLabel">Resposta automática</span>
       <textarea id="ruleReply" rows="4" placeholder="Digite a mensagem que será enviada..."></textarea>
     </label>
 
@@ -133,6 +171,8 @@
       <input type="checkbox" id="ruleEnabled" checked />
       <span>Regra ativa</span>
     </label>
+
+    <input type="hidden" id="ruleScope" value="dm" />
 
     <div class="modal-actions">
       <button class="btn-ghost" id="cancelRuleBtn">Cancelar</button>

@@ -1,7 +1,7 @@
 const express = require("express");
 const { getData, saveData } = require("./db");
-const { pickRule } = require("./automation");
-const { sendTextMessage } = require("./metaApi");
+const { pickRule, pickCommentRule } = require("./automation");
+const { sendTextMessage, sendPrivateReply } = require("./metaApi");
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ router.get("/webhook", (req, res) => {
   return res.sendStatus(403);
 });
 
-// 2) Recebimento de eventos — toda DM nova chega aqui via POST.
+// 2) Recebimento de eventos — toda DM e todo comentário chegam aqui via POST.
 router.post("/webhook", async (req, res) => {
   // Responder 200 rapidamente é importante: a Meta reenvia o evento
   // se não receber confirmação em poucos segundos.
@@ -27,11 +27,25 @@ router.post("/webhook", async (req, res) => {
 
   try {
     const body = req.body;
+
+    // Log cru pra diagnóstico — mostra exatamente o que a Meta mandou.
+    // Se nada aparecer aqui quando você testar, o problema está antes
+    // do nosso servidor (configuração na Meta), não no código.
+    console.log("Webhook recebido:", JSON.stringify(body));
+
     if (body.object !== "instagram") return;
 
     for (const entry of body.entry || []) {
+      // Mensagens diretas (DirectFlow)
       for (const event of entry.messaging || []) {
         await handleMessagingEvent(event);
+      }
+
+      // Comentários em posts/reels (automação estilo CreatorFlow)
+      for (const change of entry.changes || []) {
+        if (change.field === "comments") {
+          await handleCommentEvent(change.value);
+        }
       }
     }
   } catch (err) {
@@ -79,6 +93,48 @@ async function handleMessagingEvent(event) {
   }
 
   saveData(data);
+}
+
+/**
+ * Trata um comentário recebido em post/reels. Se o texto bater com uma
+ * palavra-chave cadastrada, manda uma DM privada pra quem comentou —
+ * igual ManyChat/CreatorFlow ("comente X e receba o link no direct").
+ */
+async function handleCommentEvent(value) {
+  const commentId = value?.id;
+  const text = value?.text;
+  const fromId = value?.from?.id;
+  const fromUsername = value?.from?.username;
+
+  if (!commentId || !text) return;
+
+  const data = getData();
+
+  // Nunca responder 2x o mesmo comentário (a Meta também só permite 1x,
+  // mas checamos aqui pra não gastar chamada à toa e pra manter histórico).
+  if (data.commentReplies[commentId]) return;
+
+  // Evita responder aos próprios comentários da página (ex: quando o
+  // bot ou um admin comenta algo na conversa do post).
+  if (fromId && fromId === process.env.META_IG_ACCOUNT_ID) return;
+
+  const rule = pickCommentRule({ text, rules: data.rules });
+  if (!rule) return;
+
+  try {
+    await sendPrivateReply(commentId, rule.reply);
+    data.commentReplies[commentId] = {
+      commentId,
+      username: fromUsername || fromId || "desconhecido",
+      keyword: rule.name,
+      ruleId: rule.id,
+      repliedAt: new Date().toISOString(),
+    };
+    saveData(data);
+    console.log(`DM privada enviada para comentário ${commentId} (regra: ${rule.name})`);
+  } catch (err) {
+    console.error("Falha ao enviar resposta privada de comentário:", err.message);
+  }
 }
 
 module.exports = router;

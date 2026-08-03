@@ -1,5 +1,6 @@
 const API = "/api";
 let currentEditingId = null;
+let currentEditingScope = "dm";
 
 // --- Navegação entre views ---
 document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -34,12 +35,14 @@ async function loadStats() {
     document.getElementById("statMessages").textContent = stats.totalMessages;
     document.getElementById("statActive").textContent = stats.activeLast24h;
     document.getElementById("statRules").textContent = stats.activeRules;
+    document.getElementById("statCommentRules").textContent = stats.activeCommentRules;
+    document.getElementById("statCommentReplies").textContent = stats.totalCommentReplies;
   } catch (err) {
     console.error("Erro ao carregar estatísticas:", err);
   }
 }
 
-// --- Conversas ---
+// --- Conversas (DM) ---
 async function loadInbox() {
   const list = document.getElementById("inboxList");
   try {
@@ -72,65 +75,112 @@ async function loadInbox() {
   }
 }
 
-// --- Regras ---
-async function loadRules() {
-  const list = document.getElementById("rulesList");
+// --- Log de DMs enviadas por comentário ---
+async function loadCommentLog() {
+  const list = document.getElementById("commentLogList");
   try {
-    const res = await fetch(`${API}/rules`);
-    const rules = await res.json();
+    const res = await fetch(`${API}/comment-replies`);
+    const replies = await res.json();
 
-    if (!rules.length) {
-      list.innerHTML = `<div class="empty-state">Nenhuma regra cadastrada ainda.</div>`;
+    if (!replies.length) {
+      list.innerHTML = `<div class="empty-state">Nenhuma DM de comentário enviada ainda.</div>`;
       return;
     }
 
-    const typeLabels = { welcome: "Boas-vindas", keyword: "Palavra-chave", fallback: "Padrão" };
-
-    list.innerHTML = rules
-      .map(
-        (r) => `
-        <div class="rule-card ${r.enabled ? "" : "is-disabled"}">
-          <div class="rule-main">
-            <div class="rule-name">${escapeHtml(r.name)}</div>
-            <span class="rule-type">${typeLabels[r.type] || r.type}</span>
-            ${r.keywords?.length ? `<div class="rule-reply">Gatilhos: ${r.keywords.map(escapeHtml).join(", ")}</div>` : ""}
-            <div class="rule-reply">${escapeHtml(r.reply)}</div>
-          </div>
-          <div class="rule-actions">
-            <button data-action="edit" data-id="${r.id}">Editar</button>
-            <button data-action="toggle" data-id="${r.id}">${r.enabled ? "Desligar" : "Ligar"}</button>
-            <button data-action="delete" data-id="${r.id}">Excluir</button>
-          </div>
-        </div>`
-      )
+    list.innerHTML = replies
+      .map((r) => {
+        const time = r.repliedAt ? new Date(r.repliedAt).toLocaleString("pt-BR") : "";
+        return `
+          <div class="convo-card">
+            <div class="convo-head">
+              <span class="convo-id">@${escapeHtml(r.username)}</span>
+              <span class="convo-time">${time}</span>
+            </div>
+            <div class="convo-last">Gatilho: ${escapeHtml(r.keyword)}</div>
+          </div>`;
+      })
       .join("");
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">Não foi possível carregar o histórico.</div>`;
+  }
+}
 
-    list.querySelectorAll("button[data-action]").forEach((btn) => {
-      btn.addEventListener("click", () => handleRuleAction(btn.dataset.action, btn.dataset.id, rules));
-    });
+// --- Regras de DM ---
+async function loadRules() {
+  const list = document.getElementById("rulesList");
+  try {
+    const res = await fetch(`${API}/rules?scope=dm`);
+    const rules = await res.json();
+    renderRulesList(list, rules, "dm");
   } catch (err) {
     list.innerHTML = `<div class="empty-state">Não foi possível carregar as regras.</div>`;
   }
 }
 
-async function handleRuleAction(action, id, rules) {
+// --- Regras de comentário ---
+async function loadCommentRules() {
+  const list = document.getElementById("commentRulesList");
+  try {
+    const res = await fetch(`${API}/rules?scope=comment`);
+    const rules = await res.json();
+    renderRulesList(list, rules, "comment");
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">Não foi possível carregar as regras.</div>`;
+  }
+}
+
+function renderRulesList(list, rules, scope) {
+  if (!rules.length) {
+    list.innerHTML = `<div class="empty-state">Nenhuma regra cadastrada ainda.</div>`;
+    return;
+  }
+
+  const typeLabels = { welcome: "Boas-vindas", keyword: "Palavra-chave", fallback: "Padrão" };
+
+  list.innerHTML = rules
+    .map(
+      (r) => `
+      <div class="rule-card ${r.enabled ? "" : "is-disabled"}">
+        <div class="rule-main">
+          <div class="rule-name">${escapeHtml(r.name)}</div>
+          <span class="rule-type">${typeLabels[r.type] || r.type}</span>
+          ${r.keywords?.length ? `<div class="rule-reply">Gatilhos: ${r.keywords.map(escapeHtml).join(", ")}</div>` : ""}
+          <div class="rule-reply">${escapeHtml(r.reply)}</div>
+        </div>
+        <div class="rule-actions">
+          <button data-action="edit" data-id="${r.id}">Editar</button>
+          <button data-action="toggle" data-id="${r.id}">${r.enabled ? "Desligar" : "Ligar"}</button>
+          <button data-action="delete" data-id="${r.id}">Excluir</button>
+        </div>
+      </div>`
+    )
+    .join("");
+
+  list.querySelectorAll("button[data-action]").forEach((btn) => {
+    btn.addEventListener("click", () => handleRuleAction(btn.dataset.action, btn.dataset.id, rules, scope));
+  });
+}
+
+async function handleRuleAction(action, id, rules, scope) {
   const rule = rules.find((r) => r.id === id);
   if (!rule) return;
 
+  const reload = scope === "comment" ? loadCommentRules : loadRules;
+
   if (action === "edit") {
-    openModal(rule);
+    openModal(rule, scope);
   } else if (action === "toggle") {
     await fetch(`${API}/rules/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: !rule.enabled }),
     });
-    loadRules();
+    reload();
     loadStats();
   } else if (action === "delete") {
     if (!confirm(`Excluir a regra "${rule.name}"?`)) return;
     await fetch(`${API}/rules/${id}`, { method: "DELETE" });
-    loadRules();
+    reload();
     loadStats();
   }
 }
@@ -138,6 +188,7 @@ async function handleRuleAction(action, id, rules) {
 // --- Modal de criação/edição ---
 const backdrop = document.getElementById("modalBackdrop");
 const ruleTypeSelect = document.getElementById("ruleType");
+const ruleTypeField = document.getElementById("ruleTypeField");
 const keywordsField = document.getElementById("keywordsField");
 
 function toggleKeywordsField() {
@@ -145,15 +196,39 @@ function toggleKeywordsField() {
 }
 ruleTypeSelect.addEventListener("change", toggleKeywordsField);
 
-function openModal(rule = null) {
+function openModal(rule = null, scope = "dm") {
   currentEditingId = rule?.id || null;
-  document.getElementById("modalTitle").textContent = rule ? "Editar regra" : "Nova regra";
+  currentEditingScope = rule?.scope || scope;
+  document.getElementById("ruleScope").value = currentEditingScope;
+
+  const isComment = currentEditingScope === "comment";
+
+  document.getElementById("modalTitle").textContent = rule
+    ? "Editar regra"
+    : isComment
+    ? "Nova regra de comentário"
+    : "Nova regra de DM";
+
   document.getElementById("ruleName").value = rule?.name || "";
-  document.getElementById("ruleType").value = rule?.type || "keyword";
   document.getElementById("ruleKeywords").value = rule?.keywords?.join(", ") || "";
   document.getElementById("ruleReply").value = rule?.reply || "";
   document.getElementById("ruleEnabled").checked = rule ? rule.enabled : true;
-  toggleKeywordsField();
+
+  document.getElementById("ruleReplyLabel").textContent = isComment
+    ? "DM privada enviada automaticamente"
+    : "Resposta automática";
+
+  if (isComment) {
+    // Regras de comentário só existem como "palavra-chave", então escondemos o seletor de tipo
+    ruleTypeField.style.display = "none";
+    ruleTypeSelect.value = "keyword";
+    keywordsField.style.display = "flex";
+  } else {
+    ruleTypeField.style.display = "flex";
+    ruleTypeSelect.value = rule?.type || "keyword";
+    toggleKeywordsField();
+  }
+
   backdrop.classList.add("is-open");
 }
 
@@ -162,13 +237,15 @@ function closeModal() {
   currentEditingId = null;
 }
 
-document.getElementById("newRuleBtn").addEventListener("click", () => openModal());
+document.getElementById("newRuleBtn").addEventListener("click", () => openModal(null, "dm"));
+document.getElementById("newCommentRuleBtn").addEventListener("click", () => openModal(null, "comment"));
 document.getElementById("cancelRuleBtn").addEventListener("click", closeModal);
 backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
 
 document.getElementById("saveRuleBtn").addEventListener("click", async () => {
   const name = document.getElementById("ruleName").value.trim();
-  const type = document.getElementById("ruleType").value;
+  const scope = document.getElementById("ruleScope").value;
+  const type = scope === "comment" ? "keyword" : document.getElementById("ruleType").value;
   const keywordsRaw = document.getElementById("ruleKeywords").value.trim();
   const reply = document.getElementById("ruleReply").value.trim();
   const enabled = document.getElementById("ruleEnabled").checked;
@@ -177,10 +254,15 @@ document.getElementById("saveRuleBtn").addEventListener("click", async () => {
     alert("Preencha o nome da regra e a resposta.");
     return;
   }
+  if (type === "keyword" && !keywordsRaw) {
+    alert("Preencha ao menos uma palavra-chave.");
+    return;
+  }
 
   const payload = {
     name,
     type,
+    scope,
     reply,
     enabled,
     keywords: type === "keyword"
@@ -198,7 +280,11 @@ document.getElementById("saveRuleBtn").addEventListener("click", async () => {
   });
 
   closeModal();
-  loadRules();
+  if (scope === "comment") {
+    loadCommentRules();
+  } else {
+    loadRules();
+  }
   loadStats();
 });
 
@@ -216,6 +302,8 @@ function refreshAll() {
   loadStats();
   loadInbox();
   loadRules();
+  loadCommentRules();
+  loadCommentLog();
 }
 refreshAll();
 setInterval(refreshAll, 8000); // atualiza sozinho a cada 8s

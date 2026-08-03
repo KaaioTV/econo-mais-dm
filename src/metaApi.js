@@ -77,4 +77,30 @@ async function sendQuickReplies(recipientId, text, options) {
   return data;
 }
 
-module.exports = { sendTextMessage, sendQuickReplies };
+/**
+ * Envia uma DM privada em resposta a um comentário público (Reels/post).
+ * Esse é o mecanismo que o Instagram usa pra automações tipo "comente X
+ * e receba o link no direct" (ManyChat/CreatorFlow).
+ *
+ * Limitações da Meta: só é possível mandar 1 private reply por comentário,
+ * e só dentro de um prazo de alguns dias após o comentário ser feito.
+ */
+async function sendPrivateReply(commentId, text) {
+  const token = getAccessToken();
+  const url = `${BASE_URL}/${commentId}/private_replies?access_token=${encodeURIComponent(token)}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: text }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    console.error("Erro ao enviar private reply via Meta API:", data);
+    throw new Error(data?.error?.message || "Falha ao enviar private reply");
+  }
+  return data;
+}
+
+module.exports = { sendTextMessage, sendQuickReplies, sendPrivateReply };
