@@ -4,7 +4,7 @@
 const fetch = require("node-fetch");
 
 const GRAPH_VERSION = process.env.META_GRAPH_API_VERSION || "v21.0";
-const BASE_URL = `[https://graph.facebook.com/$](https://graph.facebook.com/$){GRAPH_VERSION}`;
+const BASE_URL = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 function getAccessToken() {
   const token = process.env.META_PAGE_ACCESS_TOKEN;
